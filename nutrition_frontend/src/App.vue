@@ -9,6 +9,21 @@ const api = axios.create({
   timeout: 120000,
 })
 
+function getApiErrorMessage(error) {
+  if (error.code === 'ECONNABORTED') {
+    return '請求逾時：Render 免費版冷啟動較慢，請等 1 分鐘後再試一次'
+  }
+  if (!error.response) {
+    return '無法連到後端（網路或 CORS）。請確認網址為 nutrition-analyze.onrender.com'
+  }
+  const detail = error.response?.data?.detail
+  const status = error.response?.status
+  if (status === 500 && detail) {
+    return `後端錯誤：${detail}`
+  }
+  return `後端回應 ${status}：${detail || error.message}`
+}
+
 // -- 快速轉換功能 start --
 const quickInput = ref({
   protein: '',
@@ -84,12 +99,7 @@ const handleAnalyze = async () => {
     analysisResult.value = response.data
   } catch (error) {
     console.error('分析失敗:', error)
-    const timedOut = error.code === 'ECONNABORTED'
-    alert(
-      timedOut
-        ? '請求逾時：Render 免費版冷啟動較慢，請等 1 分鐘後再試一次'
-        : '後端連線失敗，請確認 Render 已部署且 GEMINI_API_KEY 已設定'
-    )
+    alert(getApiErrorMessage(error))
   } finally {
     isLoading.value = false
     loadingMessage.value = '正在分析中...'
@@ -115,12 +125,7 @@ const onFileChange = async (e) => {
     analysisResult.value = response.data
   } catch (error) {
     console.error('圖片分析失敗:', error)
-    const timedOut = error.code === 'ECONNABORTED'
-    alert(
-      timedOut
-        ? '請求逾時：圖片分析較久，請稍後再試'
-        : '圖片分析失敗，請檢查網路或後端服務'
-    )
+    alert(getApiErrorMessage(error))
   } finally {
     loadingMessage.value = '正在分析中...'
     isLoading.value = false
