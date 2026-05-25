@@ -1,6 +1,6 @@
 # 啟動虛擬環境：.\venv\Scripts\activate 
 # 設定執行策略：Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process 
-# 啟動app：uvicorn main:app --reload
+# 啟動app：uvicorn main:app --reload ； python -m uvicorn main:app --reload
 
 import os
 import json

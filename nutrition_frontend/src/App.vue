@@ -67,7 +67,7 @@ const handleAnalyze = async () => {
     const formData = new FormData()
     formData.append('food_name', foodInput.value)
 
-    const response = await axios.post('http://localhost:8000/analyze', formData)
+    const response = await axios.post('https://nutrition-backend.onrender.com/analyze', formData)
     analysisResult.value = response.data
   } catch (error) {
     console.error('分析失敗:', error)
@@ -91,7 +91,7 @@ const onFileChange = async (e) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await axios.post('http://localhost:8000/analyze', formData, {
+    const response = await axios.post('https://nutrition-backend.onrender.com/analyze', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     analysisResult.value = response.data
