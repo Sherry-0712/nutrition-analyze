@@ -18,6 +18,9 @@ function getApiErrorMessage(error) {
   }
   const detail = error.response?.data?.detail
   const status = error.response?.status
+  if (status === 429) {
+    return detail || 'Gemini 免費額度已用完，請明天再試或至 Google AI Studio 查看用量'
+  }
   if (status === 500 && detail) {
     return `後端錯誤：${detail}`
   }

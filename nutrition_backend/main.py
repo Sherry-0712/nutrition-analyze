@@ -41,8 +41,8 @@ if not os.path.exists(json_path):
 else:
     print(f"✅ 資料庫準備就緒: {json_path}")
 
-# 可用 Render 環境變數 GEMINI_MODEL 覆寫
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# 可用 Render 環境變數 GEMINI_MODEL 覆寫（flash-lite 免費額度通常與 flash 分開）
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
 model = genai.GenerativeModel(GEMINI_MODEL)
 print(f"🤖 使用模型: {GEMINI_MODEL}")
 
@@ -200,8 +200,17 @@ async def analyze_food(food_name: str = Form(None), file: UploadFile = File(None
         return gemini_result
 
     except Exception as e:
-        print(f"🔥 分析失敗: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        err = str(e)
+        print(f"🔥 分析失敗: {err}")
+        if "429" in err or "quota" in err.lower():
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Gemini 免費額度已用完。請至 https://ai.dev/rate-limit 查看用量，"
+                    "或等額度重置、換新 API Key、在 Render 設定 GEMINI_MODEL。"
+                ),
+            )
+        raise HTTPException(status_code=500, detail=err)
 
 if __name__ == "__main__":
     import uvicorn
