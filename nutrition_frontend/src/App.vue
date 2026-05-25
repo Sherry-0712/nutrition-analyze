@@ -3,6 +3,12 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 
+const API_BASE = 'https://nutrition-backend.onrender.com'
+const api = axios.create({
+  baseURL: API_BASE,
+  timeout: 120000,
+})
+
 // -- 快速轉換功能 start --
 const quickInput = ref({
   protein: '',
@@ -41,6 +47,7 @@ const calculateQuickPortions = () => {
 const foodInput = ref('')
 const analysisResult = ref(null)
 const isLoading = ref(false)
+const loadingMessage = ref('正在分析中...')
 const fileInput = ref(null)
 const imagePreviewUrl = ref('')
 let _lastObjectUrl = ''
@@ -63,17 +70,24 @@ const handleAnalyze = async () => {
   if (imagePreviewUrl.value) clearImagePreview()
 
   isLoading.value = true
+  loadingMessage.value = '正在喚醒雲端伺服器，首次可能需 30～60 秒…'
   try {
     const formData = new FormData()
     formData.append('food_name', foodInput.value)
 
-    const response = await axios.post('https://nutrition-backend.onrender.com/analyze', formData)
+    const response = await api.post('/analyze', formData)
     analysisResult.value = response.data
   } catch (error) {
     console.error('分析失敗:', error)
-    alert('後端連線失敗，請檢查 Python 是否有啟動')
+    const timedOut = error.code === 'ECONNABORTED'
+    alert(
+      timedOut
+        ? '請求逾時：Render 免費版冷啟動較慢，請等 1 分鐘後再試一次'
+        : '後端連線失敗，請確認 Render 已部署且 GEMINI_API_KEY 已設定'
+    )
   } finally {
     isLoading.value = false
+    loadingMessage.value = '正在分析中...'
   }
 }
 
@@ -87,18 +101,23 @@ const onFileChange = async (e) => {
   imagePreviewUrl.value = _lastObjectUrl
 
   isLoading.value = true
+  loadingMessage.value = '正在喚醒雲端伺服器並分析圖片，可能需 30～90 秒…'
   try {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await axios.post('https://nutrition-backend.onrender.com/analyze', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    const response = await api.post('/analyze', formData)
     analysisResult.value = response.data
   } catch (error) {
     console.error('圖片分析失敗:', error)
-    alert('圖片分析失敗，請檢查網路或後端服務')
+    const timedOut = error.code === 'ECONNABORTED'
+    alert(
+      timedOut
+        ? '請求逾時：圖片分析較久，請稍後再試'
+        : '圖片分析失敗，請檢查網路或後端服務'
+    )
   } finally {
+    loadingMessage.value = '正在分析中...'
     isLoading.value = false
     // 允許同一張圖重複上傳也能觸發 change
     if (e?.target) e.target.value = ''
@@ -173,7 +192,7 @@ const onFileChange = async (e) => {
         </div>
 
         <div v-if="isLoading" class="text-center text-sm tracking-widest text-morandi-dark/70 animate-fade-in">
-          正在分析中...
+          {{ loadingMessage }}
         </div>
 
         <div v-if="analysisResult" class="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fade-in">

@@ -5,6 +5,7 @@
 import os
 import json
 import re
+import asyncio
 from typing import Any, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,9 +41,27 @@ if not os.path.exists(json_path):
 else:
     print(f"✅ 資料庫準備就緒: {json_path}")
 
-model = genai.GenerativeModel('gemini-3-flash-preview')
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+model = genai.GenerativeModel(GEMINI_MODEL)
+print(f"🤖 使用模型: {GEMINI_MODEL}")
+
+food_list_cache: list[dict] = []
+if os.path.exists(json_path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        food_list_cache = json.load(f)
+    print(f"✅ 已快取 {len(food_list_cache)} 筆食品資料")
 
 app = FastAPI()
+
+
+async def _gemini_generate(content) -> Any:
+    """避免同步 Gemini 呼叫阻塞整個 FastAPI 事件迴圈"""
+    return await asyncio.to_thread(model.generate_content, content)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "model": GEMINI_MODEL}
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,28 +107,20 @@ def _extract_json_object(text: str) -> dict:
         if match: return json.loads(match.group(0))
         raise ValueError("AI 回傳並非有效的 JSON 格式")
 
-def _get_search_keyword(user_input: str) -> str:
-    """利用 AI 將口語轉為資料庫關鍵字"""
-    try:
-        prompt = f"將『{user_input}』簡化為一個核心食物名詞（例如：『一大碗滷肉飯』轉為『滷肉飯』）。只需回傳名詞。"
-        resp = model.generate_content([prompt])
-        return resp.text.strip().replace(" ", "").replace("。", "")
-    except:
-        return user_input
+def _normalize_keyword(user_input: str) -> str:
+    return user_input.strip().replace(" ", "").replace("。", "")
 
 def _search_local_fda(aligned_keyword: str) -> Optional[dict]:
     """在地資料庫檢索"""
-    if not aligned_keyword: return None
+    if not aligned_keyword or not food_list_cache:
+        return None
     try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            food_list = json.load(f)
-        
         # 優先找完全符合，再找部分符合
-        for item in food_list:
+        for item in food_list_cache:
             if item["name"] == aligned_keyword:
                 return _format_db_result(item, "2024 官方資料庫 (精確)")
         
-        for item in food_list:
+        for item in food_list_cache:
             if aligned_keyword in item["name"]:
                 return _format_db_result(item, "2024 官方資料庫 (模糊)")
     except Exception as e:
@@ -150,15 +161,15 @@ async def analyze_food(food_name: str = Form(None), file: UploadFile = File(None
         elif food_name:
             content.append(f"請分析：{food_name}")
         
-        response = model.generate_content(content)
+        response = await _gemini_generate(content)
         gemini_result = _extract_json_object(response.text)
         
         # --- 步驟 B：嘗試「關鍵字對齊」與「資料庫檢索」 ---
-        # 抓取 Gemini 辨識出來的 food_name 來進行在地搜尋
+        # 抓取 Gemini 辨識出來的 food_name 來進行在地搜尋（不再額外呼叫 Gemini）
         candidate = gemini_result.get("food_name") or food_name
         
         if candidate:
-            keyword = _get_search_keyword(candidate)
+            keyword = _normalize_keyword(candidate)
             print(f"🔍 嘗試對齊在地資料庫: {keyword}")
             
             db_data = _search_local_fda(keyword)
