@@ -1,9 +1,9 @@
 // 啟動服務指令：npm run dev
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
 
-const API_BASE = 'https://nutrition-backend.onrender.com'
+const API_BASE = 'https://nutrition-analyze.onrender.com'
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 120000,
@@ -61,6 +61,11 @@ const clearImagePreview = () => {
 watch(foodInput, (val) => {
   // 只要開始輸入文字，就把上一張圖片預覽清掉
   if (val && imagePreviewUrl.value) clearImagePreview()
+})
+
+// 進入頁面時先喚醒 Render（免費版冷啟動約 30～60 秒）
+onMounted(() => {
+  api.get('/health', { timeout: 90000 }).catch(() => {})
 })
 
 const handleAnalyze = async () => {

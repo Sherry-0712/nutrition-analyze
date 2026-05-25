@@ -59,6 +59,11 @@ async def _gemini_generate(content) -> Any:
     return await asyncio.to_thread(model.generate_content, content)
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "nutrition API is running"}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "model": GEMINI_MODEL}
