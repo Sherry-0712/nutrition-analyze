@@ -41,8 +41,8 @@ if not os.path.exists(json_path):
 else:
     print(f"✅ 資料庫準備就緒: {json_path}")
 
-# 可用 Render 環境變數 GEMINI_MODEL 覆寫；預設用穩定版
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+# 可用 Render 環境變數 GEMINI_MODEL 覆寫
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 model = genai.GenerativeModel(GEMINI_MODEL)
 print(f"🤖 使用模型: {GEMINI_MODEL}")
 
